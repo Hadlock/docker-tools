@@ -5,6 +5,7 @@ managing a software-dev organization using free software. Contents:
 
 | Directory | Description |
 | --------- | ----------- |
+| ansible | build your own docker cluster |
 | images | images which are published to Docker Hub |
 | lib/build | build makefile and tools |
 | services | docker-compose services that can't run in swarm |

@@ -10,6 +10,11 @@ services:
     - logs:/var/log
     ports:
     - ${PORT_RSYSLOGD:-514}:514
+    deploy:
+      placement:
+        constraints:
+        - node.hostname == denali
+
 
 volumes:
   logs:

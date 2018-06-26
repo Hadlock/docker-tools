@@ -23,7 +23,8 @@ services:
     deploy:
       placement:
         constraints:
-        - ${LABEL_WORKER:-node.role == worker}
+        - node.hostname == vinson
+        #- ${LABEL_WORKER:-node.role == worker}
 #   ulimits:
 #     sigpending: 62793
 #     nproc: 131072

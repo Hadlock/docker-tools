@@ -3,11 +3,12 @@ version: "3.2"
 services:
   peer:
     hostname: "{{.Service.Name}}-{{.Task.Slot}}"
-    image: ${REGISTRY_URI:-instantlinux}/mariadb-galera:${VERSION_MARIADB:-latest}
+    #image: ${REGISTRY_URI:-instantlinux}/mariadb-galera:${VERSION_MARIADB:-latest}
+    image: ${REGISTRY_URI}/mariadb:10.3.7
     environment:
       CLUSTER_NAME: ${CLUSTER_NAME:-cluster01}
       DISCOVERY_SERVICE: ${ETCD_HOST:-etcd}:2379
-      CLUSTER_SIZE: 3
+      CLUSTER_SIZE: 1
     ports:
     - target: 3306
       published: 18306
@@ -20,9 +21,13 @@ services:
     secrets:
     - mysql-root-password
     deploy:
-      mode: global
-      labels:
-      - ${LABEL:-service_type=mariadb}
+      #mode: global
+      #labels:
+      # - ${LABEL:-service_type=mariadb}
+      placement:
+        constraints:
+        - node.labels.sys323==true
+      replicas: 1
       restart_policy:
         condition: any
         delay: 20s

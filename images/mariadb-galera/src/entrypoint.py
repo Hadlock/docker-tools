@@ -251,12 +251,9 @@ class MariaDBCluster(object):
 
         script_setusers = r"""
         SET @@SESSION.SQL_LOG_BIN=0;
-        CREATE USER 'root'@'%%' IDENTIFIED BY '%(mysql_root_password)s';
-        GRANT ALL ON *.* TO 'root'@'%%' WITH GRANT OPTION;
-        DROP USER 'root'@'::1';
-        DROP USER 'root'@'127.0.0.1';
-        DROP USER 'root'@'localhost';
-        DROP USER 'root'@'%(hostname)s';
+        DELETE FROM mysql.user WHERE user='root' AND host!='localhost';
+        DELETE FROM mysql.user WHERE user='';
+        UPDATE mysql.user set host='%' where user='root' and host='localhost';
         CREATE USER 'xtrabackup'@'localhost' IDENTIFIED BY
           '%(xtrabackup_password)s';
         GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO
@@ -266,9 +263,10 @@ class MariaDBCluster(object):
         """
 
         logging.info({'action': '_install_new_database', 'status': 'start'})
-        opts = '--user=mysql --datadir=%s' % self.data_dir
+        opts = '--user=mysql --datadir=%s --wsrep_on=OFF' % self.data_dir
         mysql_client = '/usr/bin/mysql --protocol=socket -u root'
-        sys.stdout.write(self._invoke('mysql_install_db %s --rpm' % opts))
+        sys.stdout.write(self._invoke('mysql_install_db %s --rpm' %
+                                      opts + ' --no-defaults'))
         start_time = time.time()
         proc = self._run_background(
             'exec /usr/sbin/mysqld %s --skip-networking' % opts)
@@ -283,17 +281,26 @@ class MariaDBCluster(object):
             # Leave node up long enough to diagnose
             time.sleep(60)
             exit(1)
+        logging.info({'action': '_install_new_database', 'step': '0'})
+        sys.stdout.write(self._invoke(
+            'mysqladmin password "%s"' % self.root_password,
+            ignore_errors=False, suppress_log=True))
         sys.stdout.write(self._invoke(
             'mysql_tzinfo_to_sql /usr/share/zoneinfo | '
             'sed "s/Local time zone must be set--see zic manual page/FCTY/" | '
-            '%s mysql' % mysql_client, ignore_errors=False))
-        sys.stdout.write(self._invoke('%(mysql)s -e "%(script)s"' % {
+            '%s mysql -p%s' % (mysql_client, self.root_password),
+            ignore_errors=False))
+        logging.info({'action': '_install_new_database', 'step': '1'})
+        sys.stdout.write(self._invoke('%(mysql)s -p%(mysql_root_password)s '
+                                      '-e "%(script)s"' % {
             'mysql': mysql_client,
+            'mysql_root_password': self.root_password,
             'script': script_setusers % {
-                'mysql_root_password': self.root_password,
                 'xtrabackup_password': self.xtrabackup_password,
                 'hostname': self.my_hostname.replace('_', '\_')
-            }}, ignore_errors=False, suppress_log=True))
+            }}, ignore_errors=False, suppress_log=False))
+        logging.info({'action': '_install_new_database', 'step': '2'})
+        time.sleep(60)
         proc.terminate()
         proc.wait()
         logging.info({'action': '_install_new_database', 'status': 'ok'})
